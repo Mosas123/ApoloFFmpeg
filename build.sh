@@ -585,6 +585,9 @@ COMMON_FLAGS=(
     --disable-devices --disable-outdevs --disable-indevs
     --disable-avdevice --enable-avfilter
     --enable-swscale --disable-encoders --disable-muxers
+    # ApoloEngine needs the mp4 muxer to extract the E-AC-3 dec3 box that
+    # signals JOC (Atmos) to the system renderer.
+    --enable-muxer=mp4
     --disable-bsfs --disable-network --disable-protocols
     --disable-d3d11va --disable-dxva2 --disable-vaapi --disable-vdpau
     --disable-gray --disable-iconv --disable-bzlib
@@ -608,6 +611,16 @@ COMMON_FLAGS=(
     --enable-filter=abuffer --enable-filter=abuffersink --enable-filter=aformat --enable-filter=aresample
     --enable-filter=dialoguenhance --enable-filter=pan
     --enable-filter=acompressor --enable-filter=alimiter
+    # ApoloEngine union (music): the EQ and loudness filters mpv exposes.
+    # equalizer/superequalizer/firequalizer are the graphic/parametric EQs,
+    # bass/treble the simple shelf pair, loudnorm/dynaudnorm the ReplayGain-
+    # style targets, crossfeed the headphone crossfeed, highpass/lowpass the
+    # building blocks for a custom curve.
+    --enable-filter=equalizer --enable-filter=superequalizer --enable-filter=firequalizer
+    --enable-filter=bass --enable-filter=treble
+    --enable-filter=loudnorm --enable-filter=dynaudnorm
+    --enable-filter=crossfeed
+    --enable-filter=highpass --enable-filter=lowpass
     # Deinterlacers for AetherEngine's software-decode path: interlaced
     # MPEG-2 / VC-1 / MPEG-4 (DVD rips, SD broadcast) plus interlaced H.264
     # (AetherEngine #107: AVPlayer does not deinterlace, so 1080i/576i H.264
@@ -655,6 +668,10 @@ COMMON_FLAGS=(
     --enable-demuxer=eac3 --enable-demuxer=flac --enable-demuxer=ogg
     --enable-demuxer=wav --enable-demuxer=mp3 --enable-demuxer=srt
     --enable-demuxer=ass --enable-demuxer=data
+    # ApoloEngine union (music): lossless / audiophile containers mpv opens.
+    --enable-demuxer=ape --enable-demuxer=tta --enable-demuxer=wv
+    --enable-demuxer=aiff --enable-demuxer=tak
+    --enable-demuxer=mpc --enable-demuxer=mpc8
     # sup: raw PGS/SUP sidecar files (Jellyfin serves external PGS tracks as raw .sup streams;
     # the pgssub DECODER was always in, but without this demuxer avformat_open_input rejects the
     # file with AVERROR_INVALIDDATA and external PGS subtitles never load. AetherEngine sidecar path.)
@@ -776,6 +793,9 @@ COMMON_FLAGS=(
     --enable-decoder=eac3 --enable-decoder=flac --enable-decoder=mp3
     --enable-decoder=mp3float --enable-decoder=opus --enable-decoder=vorbis
     --enable-decoder=truehd --enable-decoder=mlp --enable-decoder=dca --enable-decoder=alac
+    # ApoloEngine union (music): the decoders for the containers added above.
+    --enable-decoder=ape --enable-decoder=tta --enable-decoder=wavpack
+    --enable-decoder=tak --enable-decoder=mpc7 --enable-decoder=mpc8
     --enable-decoder=pcm_s16le --enable-decoder=pcm_s24le --enable-decoder=pcm_f32le
     # The other integer and float PCM shapes the enabled demuxers can hand over: 24-bit
     # big-endian is what camera MOVs record as `in24`, 32-bit integer comes in WAV
