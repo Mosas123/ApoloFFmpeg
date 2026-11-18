@@ -1,0 +1,51 @@
+name: Build Apolo union
+
+on:
+  push:
+    branches: [apolo-union]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apolo-union-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.head_commit.message, 'build: xcframeworks')
+    runs-on: macos-26
+    timeout-minutes: 350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1.7.0
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-path
+
+      - name: Build frameworks
+        run: ./build.sh
+
+      - name: Commit frameworks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A Sources
+          if git diff --cached --quiet; then
+            echo "Nothing changed"
+            exit 0
+          fi
+          git commit -m "build: xcframeworks for the Apolo union"
+          git push
