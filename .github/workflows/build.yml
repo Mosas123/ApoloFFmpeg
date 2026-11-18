@@ -17,7 +17,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       !contains(github.event.head_commit.message, 'build: xcframeworks')
-    runs-on: macos-26
+    runs-on: macos-15-intel
     timeout-minutes: 350
     steps:
       - name: Checkout
