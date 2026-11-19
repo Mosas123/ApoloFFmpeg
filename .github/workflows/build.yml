@@ -16,7 +16,8 @@ jobs:
   build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      !contains(github.event.head_commit.message, 'build: xcframeworks')
+      (!contains(github.event.head_commit.message, 'build: xcframeworks') &&
+       !contains(github.event.head_commit.message, 'sign:'))
     runs-on: macos-15-intel
     timeout-minutes: 350
     steps:
