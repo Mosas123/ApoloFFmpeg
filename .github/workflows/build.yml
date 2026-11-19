@@ -1,8 +1,6 @@
 name: Build Apolo union
 
 on:
-  push:
-    branches: [apolo-union]
   workflow_dispatch:
 
 permissions:
@@ -16,8 +14,7 @@ jobs:
   build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (!contains(github.event.head_commit.message, 'build: xcframeworks') &&
-       !contains(github.event.head_commit.message, 'sign:'))
+      !contains(github.event.head_commit.message, 'build: xcframeworks')
     runs-on: macos-15-intel
     timeout-minutes: 350
     steps:
