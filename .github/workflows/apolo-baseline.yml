@@ -72,8 +72,10 @@ jobs:
       - name: Run shipped FFmpegBuild regression suite
         run: |
           set -o pipefail
+          # The library product scheme builds, but SwiftPM's aggregate
+          # -Package scheme owns the test action and FFmpegBuildTests.
           xcodebuild test \
-            -scheme "${{ steps.scheme.outputs.name }}" \
+            -scheme FFmpegBuild-Package \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
             -derivedDataPath .build/ApoloBaseline \
             ARCHS=arm64 \
