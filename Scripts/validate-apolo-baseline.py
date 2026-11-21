@@ -7,6 +7,7 @@ Xcode installation, binary mutation or re-signing required.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import plistlib
 import re
@@ -64,6 +65,22 @@ def audit(root: Path) -> dict:
         errors.append("build.sh does not expose a pinned FFMPEG_VERSION")
     elif f"FFmpeg {ffmpeg_version} " not in record:
         errors.append(f"BUILD-INFO.txt has no matching FFmpeg {ffmpeg_version} provenance")
+
+    # The import's binary build record precedes the Apolo music-union script
+    # changes. No build is considered reproducible if the script hash has
+    # drifted since the shipped XCFrameworks were produced.
+    build_hash = hashlib.sha256(build_file.read_bytes()).hexdigest()
+    embedded_hash = re.search(
+        r"^build\.sh\s+sha256\s+([0-9a-f]{64})\s*$", record, re.MULTILINE
+    )
+    if embedded_hash is None:
+        errors.append("BUILD-INFO.txt does not record build.sh SHA-256")
+    elif embedded_hash.group(1) != build_hash:
+        errors.append(
+            "stale build provenance: BUILD-INFO.txt build.sh SHA-256 "
+            f"{embedded_hash.group(1)} != current script {build_hash}; "
+            "fresh binaries and a matching build record are required"
+        )
 
     targets = dict(re.findall(
         r'\.binaryTarget\(name:\s*"([^"]+)",\s*path:\s*"([^"]+)"\)', package
