@@ -17,6 +17,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  upstream-watch-tests:
+    name: Test fail-closed upstream monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+      - name: Run offline updater regression tests
+        run: python3 -m unittest discover -s Tests/Automation -p 'test_*.py' -v
+
   provenance:
     name: Build record and XCFramework provenance
     runs-on: ubuntu-latest
