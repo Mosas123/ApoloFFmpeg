@@ -1,4 +1,4 @@
-name: Prove macOS FFmpeg dylib relocation
+name: Prove Apple FFmpeg dylib relocation
 
 on:
   pull_request:
@@ -10,36 +10,63 @@ permissions:
 
 jobs:
   relocation:
-    name: Relocate imported macOS binaries in a disposable copy
+    name: Relocate every imported Apple slice in disposable copies
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - name: Verify the relocation helper against imported universal binaries
+      - name: Exercise the relocation helper on every XCFramework slice
         run: |
           set -euo pipefail
-          TEMP_DIR="$RUNNER_TEMP/apolo-macho-sandbox"
-          mkdir -p "$TEMP_DIR"
-          COUNT=0
-          for XCF in Sources/Aether*.xcframework; do
-            MODULE=$(basename "$XCF" .xcframework)
-            ORIGINAL="$XCF/macos-arm64_x86_64/$MODULE.framework/Versions/A/$MODULE"
-            test -f "$ORIGINAL"
-            # NEVER modify the imported production XCFramework in this PR.
-            cp -L "$ORIGINAL" "$TEMP_DIR/$MODULE"
-            python3 Scripts/relocate-apple-dylibs.py \
-              --binary "$TEMP_DIR/$MODULE" \
-              --framework-name "$MODULE" \
-              --platform macos
-            # The actual build signs the staged framework after relocation.
-            # For this test we can verify the standalone copy signs as well.
-            codesign --force --sign - --timestamp=none "$TEMP_DIR/$MODULE"
-            COUNT=$((COUNT + 1))
-          done
-          test "$COUNT" -eq 9
+          # Work on isolated binary copies only, never checked-in frameworks.
+          python3 - <<'PY'
+          from pathlib import Path
+          import plistlib
+          import shutil
+          import subprocess
+          import os
 
-      - name: Original packaged libraries must remain untouched
+          output = Path(os.environ["RUNNER_TEMP"]) / "apolo-macho-relocation"
+          output.mkdir(parents=True, exist_ok=True)
+          tested = 0
+          for xcframework in sorted(Path("Sources").glob("Aether*.xcframework")):
+              module = xcframework.name.removesuffix(".xcframework")
+              with (xcframework / "Info.plist").open("rb") as handle:
+                  entries = plistlib.load(handle)["AvailableLibraries"]
+              for item in entries:
+                  platform = item["SupportedPlatform"]
+                  variant = item.get("SupportedPlatformVariant")
+                  if platform == "ios":
+                      flag = "isimulator" if variant == "simulator" else "ios"
+                  elif platform == "tvos":
+                      flag = "tvsimulator" if variant == "simulator" else "tvos"
+                  elif platform == "xros":
+                      flag = "xrsimulator" if variant == "simulator" else "xros"
+                  elif platform == "macos":
+                      flag = "macos"
+                  else:
+                      raise RuntimeError(f"unexpected platform {platform}")
+
+                  source = xcframework / item["LibraryIdentifier"] / item["BinaryPath"]
+                  target = output / f"{module}-{item['LibraryIdentifier']}"
+                  shutil.copy2(source, target)
+                  subprocess.run([
+                      "python3", "Scripts/relocate-apple-dylibs.py",
+                      "--binary", str(target),
+                      "--framework-name", module,
+                      "--platform", flag,
+                  ], check=True)
+                  subprocess.run([
+                      "codesign", "--force", "--sign", "-",
+                      "--timestamp=none", str(target),
+                  ], check=True)
+                  tested += 1
+          assert tested == 63, f"expected 9 x 7 platform slices; got {tested}"
+          print(f"PASS: relocated and re-signed {tested} disposable Apple slices")
+          PY
+
+      - name: Verify published XCFrameworks and build provenance unchanged
         run: |
           set -euo pipefail
           git diff --exit-code -- Sources/
