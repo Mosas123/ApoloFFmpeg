@@ -8,6 +8,7 @@ The account-owner import step has been completed. Preserve the old repository fo
 - iOS/tvOS `Package.swift` declares v16 but shipped `Info.plist` bundle minimums report 26.0. Compare the actual Mach-O minimum OS values and decide a consistent documented deployment policy.
 - On macOS, the imported `AetherLibavfilter.framework` was observed attempting to load `libswscale.9.dylib` using the original temporary absolute build path from `FFmpegBuild/build/thin/macos-arm64`. The full macOS test bundle could not launch in CI. This is **not** proof of an iOS runtime failure; resolve and rebuild packaging before claiming portable macOS binaries.
 - The original FFmpegBuild macOS regression suite has not passed on a clean CI runner. Build success does not substitute for a test pass.
+- **Build provenance:** the existing `BUILD-INFO.txt` is dated 16 November 2026, while the Apolo music-union `build.sh` was modified 18 November. The build script checksum in `BUILD-INFO.txt` must match the current `build.sh` before claiming the shipped binaries contain the current codec whitelist. Track in [issue #4](https://github.com/Mosas123/ApoloFFmpeg/issues/4).
 
 ## Post-import technical checklist
 
