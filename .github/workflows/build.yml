@@ -41,7 +41,10 @@ jobs:
 
       - name: Verify build record and shipped XCFramework metadata
         run: |
+          # This gate runs on freshly rebuilt outputs (never on stale checked-in binaries).
+          # Do not publish a review branch if bundle minimums exceed SwiftPM floors.
           python3 Scripts/validate-apolo-baseline.py \
+            --strict-deployment \
             --report-json apolo-baseline.json
 
       - name: Verify macOS framework dynamic linkage
