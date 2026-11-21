@@ -1,0 +1,46 @@
+name: Prove macOS FFmpeg dylib relocation
+
+on:
+  pull_request:
+    branches: [apolo-union]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relocation:
+    name: Relocate imported macOS binaries in a disposable copy
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Verify the relocation helper against imported universal binaries
+        run: |
+          set -euo pipefail
+          TEMP_DIR="$RUNNER_TEMP/apolo-macho-sandbox"
+          mkdir -p "$TEMP_DIR"
+          COUNT=0
+          for XCF in Sources/Aether*.xcframework; do
+            MODULE=$(basename "$XCF" .xcframework)
+            ORIGINAL="$XCF/macos-arm64_x86_64/$MODULE.framework/Versions/A/$MODULE"
+            test -f "$ORIGINAL"
+            # NEVER modify the imported production XCFramework in this PR.
+            cp -L "$ORIGINAL" "$TEMP_DIR/$MODULE"
+            python3 Scripts/relocate-apple-dylibs.py \
+              --binary "$TEMP_DIR/$MODULE" \
+              --framework-name "$MODULE" \
+              --platform macos
+            # The actual build signs the staged framework after relocation.
+            # For this test we can verify the standalone copy signs as well.
+            codesign --force --sign - --timestamp=none "$TEMP_DIR/$MODULE"
+            COUNT=$((COUNT + 1))
+          done
+          test "$COUNT" -eq 9
+
+      - name: Original packaged libraries must remain untouched
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- Sources/
+          git diff --exit-code -- BUILD-INFO.txt
