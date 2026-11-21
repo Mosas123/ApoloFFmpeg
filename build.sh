@@ -1179,22 +1179,23 @@ framework module ${FW} [system] {
     export *
 }
 EOF
-    # Info.plist: App Store submission rejects bundles missing
-    # CFBundleShortVersionString or MinimumOSVersion (ITMS-90057,
-    # ITMS-90360), and ALSO rejects when an embedded framework's
-    # MinimumOSVersion is *lower* than the host app's deployment
-    # target (ITMS-90208). We pick floors that match the apps that
-    # actually consume this build (JellySeeTV is tvOS 26+).
+    # The framework bundle must describe the same minimum OS as the Mach-O
+    # load command and Package.swift, not the deployment target of any one
+    # consuming app. A host app targeting a newer OS can embed an older-
+    # compatible framework; it does not redefine the framework's own minimum.
+    # Keep these values in sync with the build_*_one target triples above.
+    # This is generated metadata for our manually packaged frameworks, not
+    # a substitute for real-device compatibility and App Store archive QA.
     local MIN_OS SUPPORTED_PLATFORM
     case "${PLATFORM}" in
-        ios)         MIN_OS="26.0"; SUPPORTED_PLATFORM="iPhoneOS" ;;
-        isimulator)  MIN_OS="26.0"; SUPPORTED_PLATFORM="iPhoneSimulator" ;;
-        tvos)        MIN_OS="26.0"; SUPPORTED_PLATFORM="AppleTVOS" ;;
-        tvsimulator) MIN_OS="26.0"; SUPPORTED_PLATFORM="AppleTVSimulator" ;;
+        ios)         MIN_OS="16.0"; SUPPORTED_PLATFORM="iPhoneOS" ;;
+        isimulator)  MIN_OS="16.0"; SUPPORTED_PLATFORM="iPhoneSimulator" ;;
+        tvos)        MIN_OS="16.0"; SUPPORTED_PLATFORM="AppleTVOS" ;;
+        tvsimulator) MIN_OS="16.0"; SUPPORTED_PLATFORM="AppleTVSimulator" ;;
         xros)        MIN_OS="1.0";  SUPPORTED_PLATFORM="XROS" ;;
         xrsimulator) MIN_OS="1.0";  SUPPORTED_PLATFORM="XRSimulator" ;;
         macos)       MIN_OS="14.0"; SUPPORTED_PLATFORM="MacOSX" ;;
-        *)           MIN_OS="26.0"; SUPPORTED_PLATFORM="iPhoneOS" ;;
+        *)           echo "ERROR: unsupported framework platform: ${PLATFORM}" >&2; return 1 ;;
     esac
 
     cat > "${FW_DIR}/Info.plist" << EOF
