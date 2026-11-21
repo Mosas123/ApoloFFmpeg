@@ -1,0 +1,79 @@
+name: ApoloFFmpeg baseline (read-only)
+
+on:
+  push:
+    branches:
+      - "bootstrap/apolo-ffmpeg-*"
+  pull_request:
+    branches:
+      - apolo-union
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apolo-ffmpeg-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: Validate Apple xcframework baseline
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout snapshot
+        uses: actions/checkout@v6.0.2
+
+      - name: Verify provenance, binary slices, licenses and deployment metadata
+        run: |
+          python3 Scripts/validate-apolo-baseline.py \
+            --report-json apolo-baseline.json
+
+      - name: Upload immutable baseline report
+        uses: actions/upload-artifact@v4
+        with:
+          name: apolo-ffmpeg-baseline
+          path: apolo-baseline.json
+          retention-days: 30
+
+      - name: SwiftPM package graph
+        run: swift package dump-package > /tmp/apolo-package.json
+
+      - name: Resolve iOS simulator SDK and build
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -scheme FFmpegBuild \
+            -destination 'generic/platform=iOS Simulator'
+          xcodebuild build \
+            -scheme FFmpegBuild \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/ApoloBaseline \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Choose an installed iPhone simulator
+        id: sim
+        run: |
+          NAME=$(xcrun simctl list devices available \
+            | sed -n 's/^[[:space:]]*\(iPhone[^()]*\) (.*/\1/p' \
+            | head -1 \
+            | sed 's/[[:space:]]*$//')
+          test -n "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Run shipped FFmpegBuild regression suite
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme FFmpegBuild \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -derivedDataPath .build/ApoloBaseline \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 300
