@@ -1,9 +1,6 @@
 name: ApoloFFmpeg baseline (read-only)
 
 on:
-  push:
-    branches:
-      - "bootstrap/apolo-ffmpeg-*"
   pull_request:
     branches:
       - apolo-union
@@ -40,14 +37,22 @@ jobs:
       - name: SwiftPM package graph
         run: swift package dump-package > /tmp/apolo-package.json
 
+      - name: Find SwiftPM library scheme
+        id: scheme
+        run: |
+          xcodebuild -list
+          # The package is FFmpegBuild, but its SwiftPM library product
+          # is AetherFFmpegBuild. There is no scheme named FFmpegBuild.
+          echo "name=AetherFFmpegBuild" >> "$GITHUB_OUTPUT"
+
       - name: Resolve iOS simulator SDK and build
         run: |
           set -o pipefail
           xcodebuild -resolvePackageDependencies \
-            -scheme FFmpegBuild \
+            -scheme "${{ steps.scheme.outputs.name }}" \
             -destination 'generic/platform=iOS Simulator'
           xcodebuild build \
-            -scheme FFmpegBuild \
+            -scheme "${{ steps.scheme.outputs.name }}" \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .build/ApoloBaseline \
             ARCHS=arm64 \
@@ -68,7 +73,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test \
-            -scheme FFmpegBuild \
+            -scheme "${{ steps.scheme.outputs.name }}" \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
             -derivedDataPath .build/ApoloBaseline \
             ARCHS=arm64 \
