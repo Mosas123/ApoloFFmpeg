@@ -104,7 +104,7 @@ The baseline audit checks SwiftPM product paths, Apple framework slice metadata,
 | A4 — Migrate | Pin an ApoloFFmpeg release in ApoloEngine; verify Trop on physical iPhone; preserve rollback |
 | A5 — Maintain | Track FFmpeg/security updates, minimize local patches, submit general fixes upstream |
 
-See the staged [technical charter](docs/APOLOFFMPEG_CHARTER.md) and [migration guide](docs/APOLOFFMPEG_MIGRATION.md) on the `bootstrap/apolo-ffmpeg-20261121` branch. These files have not yet been merged into `apolo-union`.
+See our [technical charter](docs/APOLOFFMPEG_CHARTER.md), [migration and release gates](docs/APOLOFFMPEG_MIGRATION.md), and the [A1 macOS portability blocker](https://github.com/Mosas123/ApoloFFmpeg/issues/2). This release remains unvalidated until both iOS and macOS packaging gates pass.
 
 ## Upstream, patches and attribution
 
