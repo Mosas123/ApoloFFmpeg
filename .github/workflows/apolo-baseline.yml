@@ -59,27 +59,16 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Choose an installed iPhone simulator
-        id: sim
-        run: |
-          NAME=$(xcrun simctl list devices available \
-            | sed -n 's/^[[:space:]]*\(iPhone[^()]*\) (.*/\1/p' \
-            | head -1 \
-            | sed 's/[[:space:]]*$//')
-          test -n "$NAME"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Run shipped FFmpegBuild regression suite
+      - name: Run shipped FFmpegBuild regression suite on macOS
         run: |
           set -o pipefail
-          # The library product scheme builds, but SwiftPM's aggregate
-          # -Package scheme owns the test action and FFmpegBuildTests.
+          # Tests include Swift Testing exit-process assertions and Foundation
+          # Process APIs unavailable on iOS. Validate iOS as a library build
+          # above; run the complete unchanged source regression suite on macOS.
           xcodebuild test \
             -scheme FFmpegBuild-Package \
-            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -destination 'platform=macOS' \
             -derivedDataPath .build/ApoloBaseline \
-            ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
