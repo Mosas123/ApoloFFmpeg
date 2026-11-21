@@ -1,6 +1,9 @@
-name: ApoloFFmpeg baseline and Apple packaging gates
+name: ApoloFFmpeg source and binary gates
 
 on:
+  push:
+    branches:
+      - apolo-union
   pull_request:
     branches:
       - apolo-union
@@ -10,24 +13,24 @@ permissions:
   contents: read
 
 concurrency:
-  group: apolo-ffmpeg-baseline-${{ github.ref }}
+  group: apolo-ffmpeg-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ios-baseline:
-    name: iOS distribution integrity and build
-    runs-on: macos-26
-    timeout-minutes: 40
+  provenance:
+    name: Build record and XCFramework provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Audit provenance and XCFramework slices
+      - name: Validate source hashes, licences, packages and slices
         run: |
           python3 Scripts/validate-apolo-baseline.py \
             --report-json apolo-baseline.json
 
-      - name: Archive baseline report
+      - name: Archive baseline JSON even on error
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -36,14 +39,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: SwiftPM graph
+  ios-build:
+    name: Build imported library for iOS Simulator
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Dump existing SwiftPM package graph
         run: swift package dump-package > /tmp/apolo-package.json
 
-      - name: Build imported iOS Simulator library
+      - name: Build iOS Simulator library
         run: |
           set -o pipefail
-          # The imported SwiftPM library target remains AetherFFmpegBuild;
-          # renaming it is a separate coordinated consumer migration.
+          # AetherFFmpegBuild remains the current SwiftPM library product.
+          # The imported FFmpegBuild tests use macOS-only Process APIs.
           xcodebuild -resolvePackageDependencies \
             -scheme AetherFFmpegBuild \
             -destination 'generic/platform=iOS Simulator'
@@ -62,13 +73,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Audit macOS dynamic framework install names
+      - name: Audit shipped macOS dylib dependencies
         run: |
           python3 Scripts/validate-macho-links.py \
             --platform macos \
             --report-json macos-linkage.json
 
-      - name: Archive Mach-O dependency report
+      - name: Archive linkage JSON even on error
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -77,13 +88,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Run macOS SwiftPM regressions
+      - name: Run original SwiftPM regression suite on macOS
         run: |
           set -o pipefail
-          # Existing tests use Foundation.Process / Swift Testing exit tests,
-          # unavailable on iOS. They belong on macOS.
-          # Never skip the link audit: known binary can reference an absolute
-          # build/thin/macos-arm64 dylib absent on a clean machine.
+          # Tests require Foundation.Process and process-exit testing (macOS).
+          # These tests are gated behind the portable binary audit above.
           xcodebuild test \
             -scheme FFmpegBuild-Package \
             -destination 'platform=macOS' \
