@@ -127,7 +127,7 @@ def audit(root: Path, *, strict_deployment: bool = False) -> dict:
                 errors.append(f"{label}: binary missing from BUILD-INFO.txt: {rel}")
             else:
                 seen_hashes.add(rel)
-                real_hash = hashlib.file_digest(binary.open("rb"), "sha256").hexdigest()
+                real_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
                 if real_hash != expected_hash:
                     errors.append(
                         f"{label}: SHA-256 differs from BUILD-INFO.txt "
