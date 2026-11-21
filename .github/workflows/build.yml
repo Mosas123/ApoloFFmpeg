@@ -47,6 +47,12 @@ jobs:
             --strict-deployment \
             --report-json apolo-baseline.json
 
+      - name: Verify all Apple Mach-O minimums, framework signatures and binary hashes
+        run: |
+          python3 Scripts/validate-apple-artifacts.py \
+            --strict-deployment \
+            --report-json apple-artifacts.json
+
       - name: Verify macOS framework dynamic linkage
         run: |
           python3 Scripts/validate-macho-links.py \
@@ -84,6 +90,7 @@ jobs:
           name: apolo-ffmpeg-rebuild-validation
           path: |
             apolo-baseline.json
+            apple-artifacts.json
             macos-linkage.json
           if-no-files-found: warn
           retention-days: 30
