@@ -85,7 +85,7 @@ class DeploymentMetadataPolicyTests(unittest.TestCase):
         self.assertNotIn('MIN_OS=', fallback.group(1))
 
     def test_packaging_writes_selected_minimum_into_info_plist(self):
-        self.assertIn("<key>MinimumOSVersion</key><string>\${MIN_OS}</string>", SCRIPT)
+        self.assertIn("<key>MinimumOSVersion</key><string>${MIN_OS}</string>", SCRIPT)
 
 
 if __name__ == "__main__":
