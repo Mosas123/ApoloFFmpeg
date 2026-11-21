@@ -974,31 +974,16 @@ build_one() {
 # frameworks resolve when embedded in an app bundle.
 fix_install_names() {
     local BIN="$1" FW="$2" PLATFORM="$3"
-
-    local SUBPATH="${FW}.framework/${FW}"
-    [[ "${PLATFORM}" == "macos" ]] && SUBPATH="${FW}.framework/Versions/A/${FW}"
-    install_name_tool -id "@rpath/${SUBPATH}" "${BIN}"
-
-    local PAIRS=(
-        "libavcodec:AetherLibavcodec" "libavformat:AetherLibavformat" "libavutil:AetherLibavutil"
-        "libswresample:AetherLibswresample" "libswscale:AetherLibswscale" "libavfilter:AetherLibavfilter"
-        "libdav1d:AetherLibdav1d" "libzimg:AetherLibzimg" "libzvbi:AetherLibzvbi"
-    )
-    local DEPS
-    DEPS=(${(f)"$(otool -L "${BIN}" | awk 'NR>1 {print $1}')"})
-    local DEP PAIR NAME TARGET_FW NEW
-    for DEP in "${DEPS[@]}"; do
-        local BASE="${DEP##*/}"
-        for PAIR in "${PAIRS[@]}"; do
-            NAME="${PAIR%%:*}"
-            TARGET_FW="${PAIR##*:}"
-            if [[ "${BASE}" == ${NAME}.dylib || "${BASE}" == ${NAME}.*.dylib ]]; then
-                NEW="${TARGET_FW}.framework/${TARGET_FW}"
-                [[ "${PLATFORM}" == "macos" ]] && NEW="${TARGET_FW}.framework/Versions/A/${TARGET_FW}"
-                install_name_tool -change "${DEP}" "@rpath/${NEW}" "${BIN}"
-            fi
-        done
-    done
+    # Use the SAME mapping for both macOS universal architectures and all
+    # other Apple slices. The old zsh/otool parsing silently left absolute
+    # `build/thin/*` references in imported macOS binaries; a framework
+    # that points into the original developer's checkout cannot run on a
+    # clean machine. The helper verifies every architecture after writing.
+    # This executes on staged, unsigned binary data before strip/codesign.
+    python3 "${SCRIPT_DIR}/Scripts/relocate-apple-dylibs.py" \
+        --binary "${BIN}" \
+        --framework-name "${FW}" \
+        --platform "${PLATFORM}"
 }
 
 # Absolute path of one thin library, by library name and slice key. Shared by
