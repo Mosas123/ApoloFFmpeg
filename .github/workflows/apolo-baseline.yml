@@ -17,6 +17,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  apple-artifacts:
+    name: Verify Apple Mach-O minOS, framework signatures and binary hashes
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Audit built XCFrameworks
+        run: |
+          python3 Scripts/validate-apple-artifacts.py --report-json apple-artifacts.json
+
+      - name: Preserve complete Apple artifact audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apolo-ffmpeg-apple-artifact-audit
+          path: apple-artifacts.json
+          if-no-files-found: warn
+          retention-days: 30
+
   provenance:
     name: Build record and XCFramework provenance
     runs-on: ubuntu-latest
