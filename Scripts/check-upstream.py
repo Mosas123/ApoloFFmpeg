@@ -8,8 +8,9 @@ advisory for two weeks before anyone here noticed, and only then because of an u
 Run it locally:      python3 Scripts/check-upstream.py
 Against a sibling:   python3 Scripts/check-upstream.py --libdovi ../LibDovi/build.sh
 
-Exit code is 0 when every pin is current and 1 when at least one is behind, so CI can decide
-whether to raise an issue.
+Exit code is 0 when every pin is current, 1 when at least one is behind, and
+2 when any source could not be checked. An incomplete audit must never be
+mistaken for an all-clear or used to close an existing update issue.
 
 Deliberately quiet when there is nothing to do. A watcher that reports every week gets filtered
 into a folder and stops being read. It therefore keys on "upstream published something newer",
@@ -39,7 +40,7 @@ COMPONENTS = [
         # deliberate decision with its own tracking issue, and reporting n9.x every week would
         # train the reader to skip the whole report.
         "same_minor_only": True,
-        "note": "a minor or major move is a deliberate decision, tracked in FFmpegBuild issue #2",
+        "note": "a minor or major move needs explicit review, never an automatic bump",
     },
     {
         "name": "dav1d",
@@ -209,6 +210,12 @@ def main():
         lines.extend(f"- {name}: {why}" for name, why in unknown)
 
     print("\n".join(lines))
+    # Fail closed: a missing pin, unreadable source or failed upstream API
+    # request means the audit is incomplete, not that everything is current.
+    # Prioritize unknown over behind so issue automation cannot close or
+    # rewrite its last reliable report with partial information.
+    if unknown:
+        return 2
     return 1 if behind else 0
 
 
