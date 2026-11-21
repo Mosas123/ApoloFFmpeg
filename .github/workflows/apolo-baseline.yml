@@ -1,0 +1,94 @@
+name: ApoloFFmpeg baseline and Apple packaging gates
+
+on:
+  pull_request:
+    branches:
+      - apolo-union
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apolo-ffmpeg-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-baseline:
+    name: iOS distribution integrity and build
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Audit provenance and XCFramework slices
+        run: |
+          python3 Scripts/validate-apolo-baseline.py \
+            --report-json apolo-baseline.json
+
+      - name: Archive baseline report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apolo-ffmpeg-baseline
+          path: apolo-baseline.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: SwiftPM graph
+        run: swift package dump-package > /tmp/apolo-package.json
+
+      - name: Build imported iOS Simulator library
+        run: |
+          set -o pipefail
+          # The imported SwiftPM library target remains AetherFFmpegBuild;
+          # renaming it is a separate coordinated consumer migration.
+          xcodebuild -resolvePackageDependencies \
+            -scheme AetherFFmpegBuild \
+            -destination 'generic/platform=iOS Simulator'
+          xcodebuild build \
+            -scheme AetherFFmpegBuild \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/ApoloBaseline \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO
+
+  macos-runtime:
+    name: macOS install names and regression tests
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Audit macOS dynamic framework install names
+        run: |
+          python3 Scripts/validate-macho-links.py \
+            --platform macos \
+            --report-json macos-linkage.json
+
+      - name: Archive Mach-O dependency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apolo-ffmpeg-macos-linkage
+          path: macos-linkage.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Run macOS SwiftPM regressions
+        run: |
+          set -o pipefail
+          # Existing tests use Foundation.Process / Swift Testing exit tests,
+          # unavailable on iOS. They belong on macOS.
+          # Never skip the link audit: known binary can reference an absolute
+          # build/thin/macos-arm64 dylib absent on a clean machine.
+          xcodebuild test \
+            -scheme FFmpegBuild-Package \
+            -destination 'platform=macOS' \
+            -derivedDataPath .build/ApoloMacOSTests \
+            CODE_SIGNING_ALLOWED=NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 300
