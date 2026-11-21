@@ -35,22 +35,38 @@ jobs:
         run: |
           set +e
           python3 Scripts/check-upstream.py --libdovi .libdovi/build.sh > report.md
-          echo "behind=$?" >> "$GITHUB_OUTPUT"
+          WATCH_STATUS=$?
           set -e
+          echo "watch_status=${WATCH_STATUS}" >> "$GITHUB_OUTPUT"
           cat report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$WATCH_STATUS" -gt 2 ]; then
+            echo "::error::Upstream watcher returned an unexpected status $WATCH_STATUS"
+            exit 1
+          fi
 
       - name: Raise, update or close the issue
         env:
           GH_TOKEN: ${{ github.token }}
-          BEHIND: ${{ steps.check.outputs.behind }}
+          WATCH_STATUS: ${{ steps.check.outputs.watch_status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # Do not edit/close an existing issue when any upstream lookup failed.
+          # Preserve the last trustworthy issue body and signal CI failure.
+          if [ "$WATCH_STATUS" = "2" ]; then
+            echo "::error::Upstream audit incomplete; preserving existing alerts (see report above)."
+            exit 1
+          fi
+          if [ "$WATCH_STATUS" != "0" ] && [ "$WATCH_STATUS" != "1" ]; then
+            echo "::error::Invalid upstream watch status: $WATCH_STATUS"
+            exit 1
+          fi
           TITLE="Upstream dependencies have newer releases"
           EXISTING=$(gh issue list --state open --limit 100 --json number,title \
             --jq "[.[] | select(.title == \"$TITLE\")] | .[0].number // empty")
 
-          if [ "$BEHIND" = "1" ]; then
+          if [ "$WATCH_STATUS" = "1" ]; then
             { cat report.md
               printf '\n---\n\nChecked by [Upstream watch](%s). This issue is rewritten on every run and closes itself once every pin is current.\n' "$RUN_URL"
             } > body.md
