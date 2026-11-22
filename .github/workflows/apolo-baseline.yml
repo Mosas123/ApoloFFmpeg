@@ -101,3 +101,14 @@ jobs:
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
             -maximum-test-execution-time-allowance 300
+
+  deployment-metadata-policy:
+    name: Check source deployment target consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Compare Package.swift, build triples and framework metadata policy
+        run: python3 -m unittest discover -s Tests/Automation -p 'test_deployment_metadata.py' -v

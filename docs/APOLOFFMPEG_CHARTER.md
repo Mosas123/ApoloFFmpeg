@@ -32,13 +32,14 @@ unverified bit-perfect output, or FFmpeg replacing iOS's audio system.
 | Apple targets | iOS, tvOS, macOS, visionOS (+ simulators) |
 | Transport policy | FFmpeg built without its network stack; custom AVIO supplied by ApoloEngine |
 
-**Important baseline inconsistency to audit before publishing a new release:**
-`Package.swift` declares a minimum iOS/tvOS 16, while the currently packaged
-iOS/tvOS framework `Info.plist` files declare `MinimumOSVersion=26.0`.
-The build script sets those 26.0 values deliberately, even though its compiler
-target is iOS/tvOS 16. Do not silently lower or raise these fields: determine
-the effective supported deployment target, check Mach-O deployment load
-commands on the actual binaries, and validate App Store deployment semantics.
+**Minimum-OS metadata under review:** The inherited binaries declare
+`MinimumOSVersion=26.0` for iOS/tvOS although `Package.swift` and the
+actual Mach-O `LC_BUILD_VERSION` inspection of the 21 November staged rebuild
+report 16.0. The follow-up source policy sets the generated framework plist
+floor to 16.0, matching compiler targets and SwiftPM. **The already staged
+binaries are not silently edited**: they need a new full rebuild, signature
+verification, CI, consumer validation and device QA before release.
+This is not a claim that iOS/tvOS 16 runtime compatibility is established.
 
 ## Non-negotiable engineering rules
 
